@@ -1,3 +1,4 @@
+import os
 from flask import Flask, request, jsonify, render_template
 import pandas as pd
 import tensorflow as tf
@@ -15,19 +16,17 @@ n_items = user_item_matrix.shape[1]
 
 @app.route('/')
 def home():
-    return render_template('index.html', n_users=n_users)  # Pass n_users to the template
+    return render_template('index.html', n_users=n_users)
 
 @app.route('/recommend/<int:user_id>', methods=['GET'])
 def recommend(user_id):
     if user_id < 0 or user_id >= n_users:
         return jsonify({"error": "Invalid user ID"}), 400
 
-    # Predict ratings for all items
     item_ids = np.arange(n_items)
     user_ids = np.array([user_id] * n_items)
     predictions = model.predict([user_ids, item_ids], batch_size=64, verbose=0)
 
-    # Get top 5 recommendations (exclude items already rated)
     user_ratings = user_item_matrix.iloc[user_id].values
     prediction_scores = predictions.flatten()
     unrated_mask = user_ratings == 0
@@ -44,12 +43,10 @@ def recommend_form():
     if user_id < 0 or user_id >= n_users:
         return render_template('index.html', error="Invalid user ID. Please enter a number between 0 and " + str(n_users-1), n_users=n_users)
 
-    # Predict ratings for all items
     item_ids = np.arange(n_items)
     user_ids = np.array([user_id] * n_items)
     predictions = model.predict([user_ids, item_ids], batch_size=64, verbose=0)
 
-    # Get top 5 recommendations (exclude items already rated)
     user_ratings = user_item_matrix.iloc[user_id].values
     prediction_scores = predictions.flatten()
     unrated_mask = user_ratings == 0
@@ -61,4 +58,5 @@ def recommend_form():
     return render_template('index.html', user_id=user_id, recommendations=recommended_items, n_users=n_users)
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    port = int(os.environ.get('PORT', 5001))  # Use PORT from environment, default to 5001 locally
+    app.run(debug=False, host='0.0.0.0', port=port)  # Debug=False for production
