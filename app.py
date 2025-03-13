@@ -7,19 +7,31 @@ from tensorflow.keras.models import load_model
 
 app = Flask(__name__)
 
-# Load the model and data
-model = load_model("recommendation_model.h5")
-user_item_matrix = pd.read_csv("user_item_matrix.csv", index_col=0).astype(np.float32)
+# Global variables to store model and data (loaded lazily)
+model = None
+user_item_matrix = None
+n_users = None
+n_items = None
 
-n_users = user_item_matrix.shape[0]
-n_items = user_item_matrix.shape[1]
+def load_resources():
+    global model, user_item_matrix, n_users, n_items
+    if model is None or user_item_matrix is None:
+        # Load model with reduced memory footprint if possible
+        model = load_model("recommendation_model.h5", compile=False)  # Avoid compiling metrics initially
+        user_item_matrix = pd.read_csv("user_item_matrix.csv", index_col=0).astype(np.float32)
+        n_users = user_item_matrix.shape[0]
+        n_items = user_item_matrix.shape[1]
+        # Free up memory by deleting unnecessary objects (if any)
+        del model.optimizer  # Remove optimizer if present
 
 @app.route('/')
 def home():
+    load_resources()  # Load resources on first request
     return render_template('index.html', n_users=n_users)
 
 @app.route('/recommend/<int:user_id>', methods=['GET'])
 def recommend(user_id):
+    load_resources()  # Ensure resources are loaded
     if user_id < 0 or user_id >= n_users:
         return jsonify({"error": "Invalid user ID"}), 400
 
@@ -39,6 +51,7 @@ def recommend(user_id):
 
 @app.route('/recommend', methods=['POST'])
 def recommend_form():
+    load_resources()  # Ensure resources are loaded
     user_id = int(request.form['user_id'])
     if user_id < 0 or user_id >= n_users:
         return render_template('index.html', error="Invalid user ID. Please enter a number between 0 and " + str(n_users-1), n_users=n_users)
@@ -58,5 +71,5 @@ def recommend_form():
     return render_template('index.html', user_id=user_id, recommendations=recommended_items, n_users=n_users)
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5001))  # Use PORT from environment, default to 5001 locally
-    app.run(debug=False, host='0.0.0.0', port=port)  # Debug=False for production
+    port = int(os.environ.get('PORT', 5001))
+    app.run(debug=False, host='0.0.0.0', port=port)
