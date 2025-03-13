@@ -16,13 +16,11 @@ n_items = None
 def load_resources():
     global model, user_item_matrix, n_users, n_items
     if model is None or user_item_matrix is None:
-        # Load model with reduced memory footprint if possible
-        model = load_model("recommendation_model.h5", compile=False)  # Avoid compiling metrics initially
+        model = load_model("recommendation_model.h5", compile=False)  # Avoid compiling metrics
         user_item_matrix = pd.read_csv("user_item_matrix.csv", index_col=0).astype(np.float32)
         n_users = user_item_matrix.shape[0]
         n_items = user_item_matrix.shape[1]
-        # Free up memory by deleting unnecessary objects (if any)
-        del model.optimizer  # Remove optimizer if present
+        del model.optimizer  # Free up memory if optimizer exists
 
 @app.route('/')
 def home():
@@ -72,4 +70,5 @@ def recommend_form():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
+    print(f"Starting app on port {port}")  # Log the port
     app.run(debug=False, host='0.0.0.0', port=port)
